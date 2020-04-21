@@ -97,3 +97,38 @@ release version:
 
 @ensure-git-clean:
   if [ ! -z "$(git status --porcelain)" ]; then echo "Git tree is not clean, commit first"; exit 1; fi
+
+
+
+bench n mem cpu target:
+  docker run -it --rm -v $PWD/profiling:/profiling --memory={{mem}} --cpus={{cpu}} wooya/dataprep-profiling python /profiling/profiling.py --data=automobile --num={{n}} --mem={{mem}} --cpu={{cpu}} {{target}}
+
+benchall:
+  #!/usr/bin/env python3
+  import asyncio
+  from asyncio import create_subprocess_shell
+
+  async def run(cmd):
+      proc = await asyncio.create_subprocess_shell(
+        cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+      )
+
+      stdout, stderr = await proc.communicate()
+
+      return stdout.splitlines()[-1].decode()
+
+  async def bench(n: int, target: str):
+      tasks = []
+      for mem in ["1G", "2G", "4G", "8G"]:
+          for cpu in [1, 2, 4, 8]:
+              t = run(f"docker run -it --rm -v $PWD/profiling:/profiling --memory={mem} --cpus={cpu} wooya/dataprep-profiling python /profiling/profiling.py --data=automobile --num={n} --mem={mem} --cpu={cpu} {target}")
+              tasks.append(t)
+      return await asyncio.gather(*tasks)
+  
+  for n in [1000, 10000, 100000, 200000, 500000]:
+      for target in ["pandas"]:
+          for x in asyncio.run(bench(n, target)):
+              print(x)
+
