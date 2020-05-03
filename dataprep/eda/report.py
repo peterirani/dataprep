@@ -41,3 +41,17 @@ class Report:
 
         # embed into report template created by us here
         return output_html
+
+        # from htmlmin.main import minify
+        # import html
+        # from IPython.display import HTML, display
+
+        # wrapped_html = minify(
+        #     output_html, remove_all_empty_space=True, remove_comments=True
+        # )
+
+        # src = html.escape(wrapped_html)
+
+        # iframe = f'<iframe srcdoc="{src}" height="100%" width="100%" frameborder="0" allowfullscreen></iframe>'
+
+        # display(HTML(iframe))

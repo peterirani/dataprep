@@ -1,23 +1,23 @@
 """Profiling
 
 Usage:
-  profiling --data=<dataset> --num=<num> --mem=<mem> --cpu=<cpu> (pandas|dataprep)
+  profiling --data=<dataset> --row=<row> --col=<col> --mem=<mem> --cpu=<cpu> (pandas|dataprep)
 
 Options:
   -h --help    Show this screen.
 """
 import logging
+from itertools import product
+from json import dumps, JSONEncoder
 from logging import getLogger
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from time import time
-from itertools import product
 
 import numpy as np
 import pandas as pd
 from contexttimer import Timer
 from docopt import docopt
-
 
 logger = getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -34,9 +34,9 @@ def main() -> None:
     print(args)
 
     dataset = args["--data"]
-    N = int(args["--num"])
+    N, M = int(args["--row"]), int(args["--col"])
 
-    df = create_dataset(dataset, N)
+    df = create_dataset(dataset, N, M)
     data_in_mem = df.memory_usage(deep=True).sum()
 
     if args["pandas"]:
@@ -53,15 +53,19 @@ def main() -> None:
 
         print(f"Pandas Profiling Elapsed: {timer.elapsed}s")
         print(
-            {
-                "Mem": args["--mem"],
-                "CPU": args["--cpu"],
-                "Library": "pandas-profiling",
-                "Dataset": dataset,
-                "Size": N,
-                "MSize": data_in_mem,
-                "Elapsed": timer.elapsed,
-            }
+            dumps(
+                {
+                    "Mem": args["--mem"],
+                    "CPU": args["--cpu"],
+                    "Library": "pandas-profiling",
+                    "Dataset": dataset,
+                    "Row": N,
+                    "Col": M,
+                    "MSize": data_in_mem,
+                    "Elapsed": timer.elapsed,
+                },
+                cls=NumpyEncoder,
+            )
         )
     else:
         from dataprep.eda import plot, plot_correlation, plot_missing
@@ -96,23 +100,27 @@ def main() -> None:
             )
 
             print(
-                {
-                    "Mem": args["--mem"],
-                    "CPU": args["--cpu"],
-                    "Library": "dataprep",
-                    "Dataset": dataset,
-                    "Size": N,
-                    "MSize": data_in_mem,
-                    "Elapsed": {
-                        "plot": plotdf_t,
-                        "plot_correlation": plotcorr_t,
-                        "plot_missing": plotmissing_t,
+                dumps(
+                    {
+                        "Mem": args["--mem"],
+                        "CPU": args["--cpu"],
+                        "Library": "dataprep",
+                        "Dataset": dataset,
+                        "Row": N,
+                        "Col": M,
+                        "MSize": data_in_mem,
+                        "Elapsed": {
+                            "plot": plotdf_t,
+                            "plot_correlation": plotcorr_t,
+                            "plot_missing": plotmissing_t,
+                        },
                     },
-                }
+                    cls=NumpyEncoder,
+                )
             )
 
 
-def create_dataset(dataset: str, n: int) -> pd.DataFrame:
+def create_dataset(dataset: str, n: int, m: int) -> pd.DataFrame:
 
     folder = Path(__file__).parent
     df = pd.read_parquet(f"{folder/dataset}.pq")
@@ -125,9 +133,45 @@ def create_dataset(dataset: str, n: int) -> pd.DataFrame:
 
     df = df.sample(frac=1).reset_index(drop=True)[:n]
 
+    rep = int(np.ceil(m / len(df.columns)))
+
+    df = pd.concat([df] * rep, axis=1)
+
+    df.columns = [str(x) for x in list(range(len(df.columns)))]
+
+    df = df[df.columns[:m]]
+
     logger.info(f"new DataFrame shape: {df.shape}")
 
     return df
+
+
+class NumpyEncoder(JSONEncoder):
+    """ Special json encoder for numpy types """
+
+    def default(self, o):
+        if isinstance(
+            o,
+            (
+                np.int_,
+                np.intc,
+                np.intp,
+                np.int8,
+                np.int16,
+                np.int32,
+                np.int64,
+                np.uint8,
+                np.uint16,
+                np.uint32,
+                np.uint64,
+            ),
+        ):
+            return int(o)
+        elif isinstance(o, (np.float_, np.float16, np.float32, np.float64)):
+            return float(o)
+        elif isinstance(o, (np.ndarray,)):  #### This is the fix
+            return o.tolist()
+        return JSONEncoder.default(self, o)
 
 
 if __name__ == "__main__":

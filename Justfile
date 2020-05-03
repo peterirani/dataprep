@@ -100,8 +100,8 @@ release version:
 
 
 
-bench n mem cpu target:
-  docker run -it --rm -v $PWD/profiling:/profiling --memory={{mem}} --cpus={{cpu}} wooya/dataprep-profiling python /profiling/profiling.py --data=automobile --num={{n}} --mem={{mem}} --cpu={{cpu}} {{target}}
+bench n m mem cpu target:
+  docker run -it --rm -v $PWD/profiling:/profiling --memory={{mem}} --cpus={{cpu}} wooya/dataprep-profiling python /profiling/profiling.py --data=automobile --row={{n}} --col={{m}} --mem={{mem}} --cpu={{cpu}} {{target}}
 
 benchall:
   #!/usr/bin/env python3
@@ -119,16 +119,17 @@ benchall:
 
       return stdout.splitlines()[-1].decode()
 
-  async def bench(n: int, target: str):
+  async def bench(n: int, m: int, target: str):
       tasks = []
       for mem in ["1G", "2G", "4G", "8G"]:
           for cpu in [1, 2, 4, 8]:
-              t = run(f"docker run -it --rm -v $PWD/profiling:/profiling --memory={mem} --cpus={cpu} wooya/dataprep-profiling python /profiling/profiling.py --data=automobile --num={n} --mem={mem} --cpu={cpu} {target}")
+              t = run(f"docker run -it --rm -v $PWD/profiling:/profiling --memory={mem} --cpus={cpu} wooya/dataprep-profiling python /profiling/profiling.py --data=automobile --row={n} --col={m} --mem={mem} --cpu={cpu} {target}")
               tasks.append(t)
       return await asyncio.gather(*tasks)
   
-  for n in [1000, 10000, 100000, 200000, 500000]:
-      for target in ["pandas"]:
-          for x in asyncio.run(bench(n, target)):
-              print(x)
+  for n in [1000000]:
+      for m in [52]:
+        for target in ["pandas", "dataprep"]:
+            for x in asyncio.run(bench(n, m, target)):
+                print(x)
 

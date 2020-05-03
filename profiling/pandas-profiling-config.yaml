@@ -34,9 +34,9 @@ sort: None
 # which diagrams to show
 missing_diagrams:
     bar: True
-    matrix: False
-    heatmap: False
-    dendrogram: False
+    matrix: True
+    heatmap: True
+    dendrogram: True
 
 correlations:
     pearson:
@@ -53,11 +53,11 @@ correlations:
       calculate: False
       warn_high_correlations: False
     cramers:
-      calculate: False
+      calculate: True
       warn_high_correlations: True
       threshold: 0.9
     recoded:
-      calculate: False
+      calculate: True
       warn_high_correlations: True
       threshold: 1.0
 
